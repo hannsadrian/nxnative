@@ -60,8 +60,7 @@ typedef struct {
 } NVNtextureSparseTileLayout;
 
 typedef struct {
-    // TODO: reverse and define this as it looks like it's not an opaque type.
-    char dummy[1];
+    float x0, y0, x1, y1;   // DrawTexture: the destination in render-target pixels, the source in texels
 } NVNdrawTextureRegion;
 
 typedef struct {

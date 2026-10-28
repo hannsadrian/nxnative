@@ -1067,6 +1067,13 @@ NVN(nvnCommandBufferCopyTextureToTexture, void, NVNcommandBuffer *c, const NVNte
     p_copy_t2t *o = REC_SNAP(c, OP_COPY_T2T, p_copy_t2t, 2); o->src = tex_snap(o, SNAP_OFF(p_copy_t2t), 0, s, (uint64_t)__builtin_return_address(0)); o->dst = tex_snap(o, SNAP_OFF(p_copy_t2t), 1, d, (uint64_t)__builtin_return_address(0));
     copy_view(&o->sv, &o->has_sv, sv); copy_view(&o->dv, &o->has_dv, dv); o->sr = *sr; o->dr = *dr; o->flags = flags;
 }
+// A textured rectangle drawn into the bound color target without a shader: Streets of Rage 4's MonoGame video player (main+0x2fea4dc's player) draws each movie frame this way.
+// Recorded with the handle; the texture and the target are resolved at replay (nvn_mtl.m draw_tex)
+NVN(nvnCommandBufferDrawTexture, void, NVNcommandBuffer *c, NVNtextureHandle h, const NVNdrawTextureRegion *dst, const NVNdrawTextureRegion *src) {
+    // IDs of the pools this command buffer bound, moved to their part of the host table as bind_handles does (Streets of Rage 4's player draws IDs 256 / 257 of a pool of its own)
+    uint64_t tid = h & 0xfffff, sid = h >> 20; if (tid) tid += (uint64_t)CB(c)->tex_base; if (sid) sid += (uint64_t)CB(c)->samp_base;
+    p_draw_tex *o = REC(c, OP_DRAW_TEX, p_draw_tex); o->handle = tid | sid << 20; o->dst = *dst; o->src = *src;
+}
 NVN(nvnCommandBufferSetCopyRowStride, void, NVNcommandBuffer *c, ptrdiff_t st) { p_copy_stride *o = REC(c, OP_COPY_STRIDE, p_copy_stride); o->stride = st; o->image = 0; }
 NVN(nvnCommandBufferSetCopyImageStride, void, NVNcommandBuffer *c, ptrdiff_t st) { p_copy_stride *o = REC(c, OP_COPY_STRIDE, p_copy_stride); o->stride = st; o->image = 1; }   // Link's Awakening
 NVN(nvnCommandBufferSetBlendColor, void, NVNcommandBuffer *c, const float *v) { memcpy(REC(c, OP_BLEND_COLOR, p_blend_color)->rgba, v, 16); }

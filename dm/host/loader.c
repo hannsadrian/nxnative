@@ -29,10 +29,24 @@ static pthread_key_t key_value(unsigned i) {
     default: return g_keygate;
     }
 }
+// The gate stack slot (entry.S _dm_gate): _dm_gate has one free register, so it reads its key at a fixed TSD offset and the host claims that key number here.
+// pthread_key_create hands out the lowest free key, so the keys below it are taken and given back
+extern const uint64_t dm_gate_key;
+static void claim_gate_key(void) {
+    pthread_key_t spare[512], k; int n = 0, got = 0;
+    while (n < 512 && !pthread_key_create(&k, NULL)) {
+        if (k == dm_gate_key) { got = 1; break; }
+        if (k > dm_gate_key) { pthread_key_delete(k); break; }
+        spare[n++] = k;
+    }
+    for (int i = 0; i < n; i++) pthread_key_delete(spare[i]);
+    if (!got) die("cannot claim TSD key %llu for the gate stack (entry.S GATE_KEY)", (unsigned long long)dm_gate_key);
+}
 static void create_keys(void) {
     if (pthread_key_create(&g_key18, NULL) || pthread_key_create(&g_keytls, NULL) ||
         pthread_key_create(&g_keytlr, NULL) || pthread_key_create(&g_keygate, NULL)) die("cannot create the host key");
-    LOG("key numbers K18=%lu KTLS=%lu KTLR=%lu KGATE=%lu", g_key18, g_keytls, g_keytlr, g_keygate);
+    claim_gate_key();
+    LOG("key numbers K18=%lu KTLS=%lu KTLR=%lu KGATE=%lu gate stack %llu", g_key18, g_keytls, g_keytlr, g_keygate, (unsigned long long)dm_gate_key);
 }
 
 // K slot check: the pthread TSD layout is fixed, slot = tpidrro_el0 + 8*key

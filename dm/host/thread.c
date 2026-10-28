@@ -1,6 +1,8 @@
 // Guest thread environment: gate slot = host gate entry; x18 slot cleared; tpidr_el0 slot = ELF TLS block; tpidrro_el0 slot = Horizon ThreadLocalRegion (0x200).
 // The SDK's internal critical section takes the current thread object pointer from TLR[0x1f8]; here each thread gets a zero-initialized object allocated and written in.
 #include "dm.h"
+#include <sys/mman.h>
+#include <unistd.h>
 #define TLS_SIZE 8192
 #define TLR_SIZE 0x200
 #define THREAD_OBJ_SIZE 0x400
@@ -24,4 +26,13 @@ void guest_thread_init(void) {
     pthread_setspecific(g_keytls, own[0]); pthread_setspecific(g_keytlr, tlr);
     void **prev = pthread_getspecific(g_keyown); if (prev) own_free(prev);   // re-initialised on the same thread: free the previous set first (the new one is what the slots now point to)
     pthread_setspecific(g_keyown, own);
+}
+// The main thread's gate stack (entry.S _dm_gate). A thread the SDK creates gets the host stack it leaves in dm_thread_enter; the main thread runs the guest on its host stack,
+// so its gates get a mapping of their own (1 MB, as a guest thread's host stack, with a guard page below), kept for the life of the process
+void guest_thread_main_gate_stack(void) {
+    extern const uint64_t dm_gate_key;
+    size_t sz = 1 << 20, guard = (size_t)getpagesize();
+    uint8_t *p = mmap(NULL, sz + guard, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+    if (p == MAP_FAILED || mprotect(p, guard, PROT_NONE)) die("main thread gate stack allocation failed");
+    pthread_setspecific((pthread_key_t)dm_gate_key, p + guard + sz);
 }

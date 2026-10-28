@@ -377,10 +377,10 @@ _Static_assert(sizeof(hz_ctx_t) == 0x320, "ThreadContext");
 static void ctx_fill(const thr_t *t, hz_ctx_t *o) {   // holding G, t is stopped
     memset(o, 0, sizeof *o);
     const uint64_t *r = atomic_load(&t->svc_regs);
-    if (r) {   // gate frame: x0..x30 at +0, q0..q31 at +256, nzcv / fpsr / fpcr at +768 / +776 / +784; the stack top before the gate = frame + 800
+    if (r) {   // gate frame (entry.S): x0..x30 at +0, q0..q31 at +256, nzcv / fpsr / fpcr at +768 / +776 / +784, the guest's sp at the gate at +792 (the frame is on the gate stack)
         for (int i = 0; i < 29; i++) o->r[i] = r[i];
         o->r[18] = t->svc_x18;   // the gate frame's x18 is the host's (see on_pause_sig)
-        o->fp = r[29]; o->lr = r[30]; o->sp = (uint64_t)r + 800; o->pc = t->svc_pc; o->pstate = (uint32_t)r[96];
+        o->fp = r[29]; o->lr = r[30]; o->sp = r[99]; o->pc = t->svc_pc; o->pstate = (uint32_t)r[96];
         memcpy(o->v, r + 32, sizeof o->v); o->fpsr = (uint32_t)r[97]; o->fpcr = (uint32_t)r[98];
     } else if (t->ctx_ok) {
         memcpy(o->r, t->ctx_x, sizeof o->r); o->fp = t->ctx_fp; o->lr = t->ctx_lr; o->sp = t->ctx_sp; o->pc = t->ctx_pc; o->pstate = t->ctx_pstate;
@@ -643,11 +643,11 @@ void svc_thread_dump(void) {
         if (have_raw) { char hx[200]; int q = 0; for (int i = 0; i < 64; i += 4) q += snprintf(hx + q, sizeof hx - q, "%08x ", *(uint32_t *)(raw + i));
                         fprintf(stderr, "[dm]   %#x waited-for object, 64 bytes from %#llx: %s\n", t->handle, t->waddr & ~0xfull, hx); }
         // A thread in an SVC: the guest code that called it, from its stack. Engines built without frame pointers (Batman: Arkham Knight's Unreal Engine 3) leave the frame-pointer backtrace
-        // at the SVC wrapper, so the words above the gate's register frame that point into a module are listed, nearest first, with x19-x28. regs + 800 holds the x29 / x30 the gate block
-        // pushed (x30 = the return address into the wrapper's caller, which the backtrace skips: the wrappers are leaf functions), the guest stack at the SVC follows at regs + 816.
+        // at the SVC wrapper, so the words of the guest stack that point into a module are listed, nearest first, with x19-x28. The guest's sp at the gate (regs[99]) holds the x29 / x30 the
+        // gate block pushed (x30 = the return address into the wrapper's caller, which the backtrace skips: the wrappers are leaf functions), the guest stack at the SVC follows 16 bytes above.
         // Read page by page up to the first unreadable one: a thread waiting near its stack top (a shallow worker) has PROT_NONE stack region above it, and one read would fail whole
         uint64_t *sr = atomic_load(&t->svc_regs);
-        if (sr && t->wkind) { uint64_t stk[160]; size_t got = 0; vm_address_t sa = (vm_address_t)((uint8_t *)sr + 800);
+        if (sr && t->wkind) { uint64_t stk[160]; size_t got = 0; vm_address_t sa = (vm_address_t)sr[99];
             while (got < sizeof stk) { vm_size_t n = sizeof stk - got, g4 = 0, room = vm_page_size - ((sa + got) & (vm_page_size - 1)); if (n > room) n = room;
                 if (vm_read_overwrite(mach_task_self(), sa + got, n, (vm_address_t)((uint8_t *)stk + got), &g4) || g4 != n) break;
                 got += n; }

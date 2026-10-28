@@ -596,6 +596,13 @@ The replay on Metal (`dm/gfx/nvn/nvn_mtl.m`) and the Vulkan and OpenGL layers. E
 - **Fix:** every other helper pass ends `g_blit` before it opens its own encoder, and now `tf_draw` does too (GitHub issue #101).
 - **Found on:** [Pokémon Legends: Z-A](../../dm/games/0100F43008C44000/README.md): two minutes into a new game, about frame 3390 on the Mac, with the encoding thread on and off.
 
+### `DrawTexture` drawn as a scaling texture copy
+
+- **Symptom:** `[RED] NVN unimplemented function called: nvnCommandBufferDrawTexture`; a movie the game plays shows black, the screen behind it stays as it was.
+- **Cause:** `nvnCommandBufferDrawTexture` (a textured rectangle into the bound colour target, with no shader) was not implemented. Its handle numbers the texture and the sampler in the pools the command buffer bound, which may not be the first ones.
+- **Fix:** recorded as `OP_DRAW_TEX` with the handle moved to the bound pools' part of the host table (as `bind_handles` does) and both regions (`NVNdrawTextureRegion`: `x0, y0, x1, y1` floats, the destination in pixels, the source in texels). At replay `draw_tex` resolves the texture and colour target 0 and draws through the scaling copy `copy_t2t_draw`, filtered by the sampler's magnification filter, with target 0's blend state, channel mask and blend constant; a region given in reverse mirrors the picture. Depth and stencil tests and the scissor are not applied. Every analysis pass treats it like a texture copy.
+- **Found on:** [Streets of Rage 4](../../dm/games/0100EC9010258000/README.md): MonoGame's video player draws each movie frame (native-texture mode, two textures at IDs 256 and 257 of its own pool, in turn) this way. Read from the first pool, ID 256 was the game's 2×2 red texture, which covered every other frame.
+
 ### Viewport swizzles applied as a flipped viewport
 
 - **Symptom:** the whole picture upside down (Absolum's title logo and "Press Any Button" mirrored top to bottom); a red-reporting stub for `nvnCommandBufferSetViewportSwizzles`.

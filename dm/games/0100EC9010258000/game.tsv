@@ -1,0 +1,45 @@
+# Game profile of Streets of Rage 4 (Switch, base game v0 + update 1.0.9 = v458752). Plays on the Mac and on the iPhone (60 fps)
+# Format: see dm/games/README.md
+# MonoGame for the Switch (Microsoft.Xna.Framework over NVN), its C# and the game's compiled to C++ by Sickhead's BRUTE into main with a Boehm collector, Wwise sound, SDK 9.3.1.
+# The shaders are MonoGame effects (MGFX version 8): 14 XNB files in rom:/shader and SpriteBatch's built-in effect in main (shader_split.py mgfx_effect). The intro movies go through
+# subsdk0 (NintendoSDK_movie) in native-texture mode and are drawn with nvnCommandBufferDrawTexture
+
+# ---- Identity ----
+title_id	0100EC9010258000
+program_id	0100EC9010258000
+
+# ---- App ----
+# Game name: only a label for profile listings and the Mac window title; the iOS app name is the game name in the base NSP, and the bundle ID comes from the base game title ID (build_ipa.sh / NSP script)
+name	Streets of Rage 4
+ipa	StreetsOfRage4.ipa
+app_category	public.app-category.action-games
+
+# ---- Versions ----
+build	v458752	1.0.9	main=8817441976e32e94909a95f64405a99a	subsdk0=5a7ada8dd7447c10aa244944f64d0aff	sdk=ad3fdfbd62a5f4b082d385ffe420d440
+package	v458752
+shader_versions	v458752
+
+# ---- Files ----
+# every module main imports from; subsdk0 is NintendoSDK_movie
+modules	main subsdk0 sdk
+romfs_marker	textures
+zip_store	.bnk:.mp4:.otf:.png:.wem:.metallib
+
+# ---- Memory ----
+# The NPDM declares no system resource, so the game has no virtual address memory: it sets a heap of the application pool − used memory and allocates from it.
+# The block is 256 MB in front + 256 MB alias region + 256 MB stack region + 3.25 GB heap region
+mem_reserve	0x100000000
+mem_alias	0x10000000
+mem_stack	0x10000000
+# Workaround, 128 MB more than the Switch's 0xCD500000 (a 3.19 GB heap instead of 3.06 GB): main's StandardAllocator holds a fixed 2150 MB graphics block, 128 MB of audio,
+# 116 MB of Wwise and about 430 MB of Boehm heap by the first movie, and the video player's 128 MB buffer then failed in about one boot in two (274 MB free, the largest block 105 MB).
+# Why the Switch does not fail is open (README.md, What it needs)
+app_pool	0xD5500000
+# the NPDM declares no system resource: IsVirtualAddressMemoryEnabled is false, as on Horizon
+sys_resource	0x0
+# the rewritten modules (119 MB without main's 27 MB of bss) are larger than the default 64 MB of used memory, so the heap request plus the modules would exceed the pool
+mem_used	0x76d8000
+
+# ---- Shader split (shader_split.py; MonoGame effects) ----
+shader_groups	/shader/=shader
+shader_note	Streets of Rage 4 shaders

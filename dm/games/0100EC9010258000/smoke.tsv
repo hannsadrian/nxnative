@@ -1,0 +1,9 @@
+# Boot smoke route for scripts/regress.py (docs/development.md, The regression harness): key <TAB> value
+# No save and no input: the boot and the three intro movies (void at about 4 s, then game_intro_logos and game_intro, drawn with nvnCommandBufferDrawTexture),
+# which reach frame 1,200 to 1,500 in 30 to 35 s on an M1 Pro. The shots fall in game_intro
+save	new
+secs	40
+quick	35
+reach	900@30
+shots	25,33
+hang	20

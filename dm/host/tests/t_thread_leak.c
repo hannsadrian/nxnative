@@ -20,6 +20,7 @@ static void t_free(void *p) { if (!p) return; atomic_fetch_sub(&g_live_blocks, 1
 
 pthread_key_t g_key18, g_keytls, g_keytlr, g_keygate;
 void dm_gate(void) {}
+const uint64_t dm_gate_key = 384;   // entry.S; thread.c's main-thread gate stack, not called here
 
 static int fails, checks;
 #define EXPECT(name, want, got) do { long w_ = (long)(want), g_ = (long)(got); checks++; printf("%-46s expected %-8ld → got %-8ld %s\n", name, w_, g_, w_ == g_ ? "✓" : "✗"); if (w_ != g_) fails++; } while (0)
