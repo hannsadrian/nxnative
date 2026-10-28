@@ -1,14 +1,14 @@
 # Absolum (`0100A83022A22000`)
 
-Update 1.1.1 (v393216) over the base game (v0), SDK 18.3.2. FNA (XNA 4 reimplemented in C#) compiled with .NET NativeAOT (NativeAOT-NX; its own GC, regions enabled), SDL3, FNA3D's NVN driver (`FNA3D_Driver_NVN.cpp`), Wwise. Modules `main`, `subsdk2` (the movie module, for FNA3D's video player: H.264 logos) and `sdk`; NVIDIA's Vulkan and OpenGL drivers (`subsdk0`, `subsdk1`) are not loaded. Epic Online Services comes as an NRO the host does not load; the game plays offline without it. Playable on an iPhone.
+Update 1.1.2 (v458752) over the base game (v0), SDK 18.3.2. FNA (XNA 4 reimplemented in C#) compiled with .NET NativeAOT (NativeAOT-NX; its own GC, regions enabled), SDL3, FNA3D's NVN driver (`FNA3D_Driver_NVN.cpp`), Wwise. Modules `main`, `subsdk2` (the movie module, for FNA3D's video player: H.264 logos) and `sdk`; NVIDIA's Vulkan and OpenGL drivers (`subsdk0`, `subsdk1`) are not loaded. Epic Online Services comes as an NRO the host does not load; the game plays offline without it. Playable on an iPhone.
 
-Status: brought up on the Mac: the logo movie, the licence agreement, the main menu, the campfire character select, the intro and the first level (the "Strike / Skill" tutorial and the cave after it), at 60 fps with real sound and saves; about 2.5 GB resident.
+Status: brought up on 1.1.2 on the Mac: the logo movie, the licence agreement, the main menu, the campfire character select, the `WOF_Intro` intro movie and into the first level (the story's intro blurbs past, no error to frame 17,400 of a 300 s scripted route), at 60 fps with real sound and saves; about 2.5 GB resident (2531 MB at frame 14,700).
 
 ## What it needs
 
 | Setting | Where | Why |
 |---|---|---|
-| malloc region cut 40 GB → 2.5 GB: `main+0x28bff4` `mov x0,#0xa00000000` → `mov x0,#0xa0000000` | [`patches.py`](patches.py), `main` `916f5b8d…` | malloc's StandardAllocator takes 40 GB of address space; 2.19 GB is used into the first level; see [Memory](#memory) |
+| malloc region cut 40 GB → 2.5 GB: `main+0x28c084` `mov x0,#0xa00000000` → `mov x0,#0xa0000000` | [`patches.py`](patches.py), `main` `f2d7d0e1…` (1.1.1: `+0x28bff4`, `916f5b8d…`) | malloc's StandardAllocator takes 40 GB of address space; 2.19 GB is used into the first level; see [Memory](#memory) |
 | `game_env DOTNET_GCRegionRange=60000000` | [`game.tsv`](game.tsv), `hle_os.c` | the .NET GC's region range 1.5 GB instead of 5 × its hard limit (3.75 GB) |
 | Node area cut 1 GB → 62 MB (`sdk+0x13be4c` / `+0x13bee0`) and 32 MB alignment for regions of 1 GB and more (`sdk+0x13c03c`) | `dm/tools/sdk_patches.py`, `sdk` build `f118ae1c…` | the 1 GB alignment lost up to 1 GB before each of the two large regions |
 | Engage's 5 GB block: `mem_reserve 0x140000000`, `mem_alias 0x118000000`, `mem_stack 0x10000000`, `app_pool 0xCD500000` | `game.tsv` | 256 MB in front + 4.375 GB alias region + 256 MB stack region + 128 MB heap region (never used) |
@@ -18,7 +18,7 @@ No `pad_layout` key: the iPhone gamepad starts in the 2D layout ([README](../../
 ## Memory
 
 - The NPDM declares 16 MB of system resource (virtual address memory), and `main` never calls `SetMemoryHeapSize`: everything lives in address regions of the alias region. `profile_guess.py` gives every game with an NPDM system resource the 5 GB block, and this game came out right with it ([Unity 6 takes its memory with no StandardAllocator and no heap](../../../docs/reference/memory.md#unity-6-takes-its-memory-with-no-standardallocator-and-no-heap)).
-- **Resolved: `nn::diag` abort at `sdk+0x12dad0` in `nninitStartup`, called from `main+0x756310`.** That is malloc's `StandardAllocator::Initialize(nullptr, 0xa00000000)`: 40 GB of address space (`main+0x28bff4`; `nninitStartup` is at `main+0x1b54d0`, the call goes through `main+0x7562d0`).
+- **Resolved: `nn::diag` abort at `sdk+0x12dad0` in `nninitStartup`, called from `main+0x756310` (1.1.1: `+0x7562d0`).** That is malloc's `StandardAllocator::Initialize(nullptr, 0xa00000000)`: 40 GB of address space (`main+0x28c084`; 1.1.1 `main+0x28bff4`). `nninitStartup` is at `main+0x1b54d0` in both builds.
 - How the needs were measured: one boot on the Mac with a 64 GB alias region (`mem_reserve 0x1030000000`, `mem_alias 0x1008000000`), probing `VammManager::AllocateAddressRegion`'s success path (`sdk+0x13bf8c`: x21 size, x22 address) with `DM_SVC=1`'s map log. The regions, from boot into the first level:
   - malloc's: 2.19 GB used, 1.75 GB of it FNA3D's GPU heap, allocated whole at `FNA3D_CreateDevice` (`main+0xc03660` → `main+0x563370`); its blocks reach 332 MB from the region's start and 1.82 GB from its end, and no more after the title. The cut gives it 2.5 GB, 300 MB to spare.
   - the .NET GC's region range: 5 × its hard limit (768 MB = 75% of the 1 GB its `GetPhysicalMemoryLimit`, `main+0x28bffc`, reports), 3.75 GB. The GC reads `DOTNET_GCRegionRange` through `getenv` first; the host answers `getenv` from the profile key `game_env` (`hle_os.c`; every other name goes to the SDK's own `getenv`, an empty environment), which sets 1.5 GB. The GC then uses its range from both ends, 756 MB from the start and 748 MB from the end (718 MB mapped into the first level), where it used only the first 1.14 GB of 3.75.
