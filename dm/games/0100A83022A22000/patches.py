@@ -7,9 +7,4 @@ CUTS = {
   '916f5b8d61baa16d0939404ea047e129': [
     (0x28bff4, '4001c0d2', '0000b4d2', 'malloc region size: mov x0,#0xa00000000 → mov x0,#0xa0000000 (40 GB → 2.5 GB of address space)'),
   ],
-  # Absolum 1.1.2 (v458752) main: the same getter, a leaf function that returns the 40 GB malloc region size (main+0x28c084, second of the two size getters: the next one, +0x28c08c,
-  # is the 1 GB GetPhysicalMemoryLimit the GC reads). nninitStartup is still at main+0x1b54d0 and calls it at main+0x1b54d8, then StandardAllocator::Initialize at main+0x756310
-  'f2d7d0e177d1e60c33678a9a57ba2056': [
-    (0x28c084, '4001c0d2', '0000b4d2', 'malloc region size: mov x0,#0xa00000000 → mov x0,#0xa0000000 (40 GB → 2.5 GB of address space)'),
-  ],
 }
